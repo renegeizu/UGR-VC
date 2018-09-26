@@ -62,7 +62,7 @@ def displayMultipleImage(images, position = 1, name = 'Imagen'):
 # Mostrar Multiples Imagenes en una Ventana Matplotlib
 def plotMultipleImage(images, imgNames, rows, columns, name = 'Imagen'):
     # El numero de Imagenes debe coincidir con el de particiones
-    if (len(images) == (rows * columns)):
+    #if (len(images) == (rows * columns)):
         fig = plt.figure(0)
         fig.canvas.set_window_title(name)
         for i in range(rows * columns):
@@ -77,9 +77,9 @@ def plotMultipleImage(images, imgNames, rows, columns, name = 'Imagen'):
                 plt.xticks([])
                 plt.yticks([])
         plt.show()
-    else:
-        print('El numero de particiones es distinto al de Imagenes')
-        sys.exit()
+    #else:
+    #    print('El numero de particiones es distinto al de Imagenes')
+    #    sys.exit()
      
 #Modificar los Pixeles de la Imagen
 def modifyPixels(uri, typeImg = 0, pixel = 50):
@@ -119,21 +119,19 @@ def modifyPixels(uri, typeImg = 0, pixel = 50):
 """
 
 def main():
-    uri = 'lena.jpg'
-    
     ### Ejercicio 01
     # Se lee la Imagen en Escala de Grises y se muestra por pantalla
-    displayImage(readImage(uri, 0), 'Imagen en Escala de Grises')
+    displayImage(readImage('data/plane.bmp', 0), 'Imagen en Escala de Grises')
     # Se lee la Imagen en Escala de Colores y se muestra por pantalla
-    displayImage(readImage(uri, 1), 'Imagen en Escala de Colores')
+    displayImage(readImage('data/plane.bmp', 1), 'Imagen en Escala de Colores')
     
     input("\nPulsa Enter para continuar la ejecucion:\n")
     
     ### Ejercicio 02
     # Informacion de la Imagen en Escala de Grises
-    showImageMatrixData(uri, 'Matriz Imagen en Escala de Grises', 0)
+    showImageMatrixData('data/submarine.bmp', 'Matriz Imagen en Escala de Grises', 0)
     # Informacion de la Imagen en Escala de Colores
-    showImageMatrixData(uri, 'Matriz Imagen en Escala de Colores', 1)
+    showImageMatrixData('data/submarine.bmp', 'Matriz Imagen en Escala de Colores', 1)
     
     input("\nPulsa Enter para continuar la ejecucion:\n")
     
@@ -141,17 +139,17 @@ def main():
     print('Imagenes Concatenadas')
     # Creamos una Lista de Imagenes de distintos tipos
     images = []
-    images.append(readImage(uri, 0))
-    images.append(readImage(uri, 1))
-    images.append(readImage(uri, 0))
+    images.append(readImage('data/cat.bmp', 0))
+    images.append(readImage('data/dog.bmp', 1))
+    images.append(readImage('data/cat.bmp', 0))
     # Se concatenan las Imagenes en la Lista, en una sola ventana
     displayMultipleImage(images, 1, 'Imagenes Concatenadas')
     
     input("\nPulsa Enter para continuar la ejecucion:\n")
     
     ### Ejercicio 04
-    modifyPixels(uri, 0, 50)
-    modifyPixels(uri, 1, 50)
+    modifyPixels('data/fish.bmp', 0, 50)
+    modifyPixels('data/fish.bmp', 1, 50)
     
     input("\nPulsa Enter para continuar la ejecucion:\n")
     
@@ -161,12 +159,12 @@ def main():
     # Creamos otra lista con los nombres de las Imagenes
     images = []
     imgNames = []
-    images.append(readImage(uri, 0))
-    imgNames.append('Lena1')
-    images.append(readImage(uri, 1))
-    imgNames.append('Lena2')
-    images.append(readImage(uri, 0))
-    imgNames.append('Lena3')
+    images.append(readImage('data/einstein.bmp', 0))
+    imgNames.append('Einstein')
+    images.append(readImage('data/motorcycle.bmp', 1))
+    imgNames.append('Motorcycle')
+    images.append(readImage('data/marylyn.bmp', 0))
+    imgNames.append('Marilyn')
     # Se concatenan las Imagenes en la Lista, en una sola ventana
     plotMultipleImage(images, imgNames, 1, 3, 'Imagenes Concatenadas')
 
