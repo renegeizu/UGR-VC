@@ -159,12 +159,12 @@ def main():
     # Creamos otra lista con los nombres de las Imagenes
     images = []
     imgNames = []
-    images.append(readImage('data/einstein.bmp', 0))
-    imgNames.append('Einstein')
-    images.append(readImage('data/motorcycle.bmp', 1))
-    imgNames.append('Motorcycle')
-    images.append(readImage('data/marylyn.bmp', 0))
-    imgNames.append('Marilyn')
+    images.append(readImage('data/cat.bmp', 0))
+    imgNames.append('Cat')
+    images.append(readImage('data/dog.bmp', 1))
+    imgNames.append('Dog')
+    images.append(readImage('data/cat.bmp', 0))
+    imgNames.append('Cat')
     # Se concatenan las Imagenes en la Lista, en una sola ventana
     plotMultipleImage(images, imgNames, 1, 3, 'Imagenes Concatenadas')
 
