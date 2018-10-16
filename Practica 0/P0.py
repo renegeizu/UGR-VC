@@ -40,6 +40,8 @@ def showImageMatrixData(uri, name = 'Matriz Imagen', typeImg = 0):
     
 # Mostrar Multiples Imagenes en una Ventana OpenCV
 def displayMultipleImage(images, position = 1, name = 'Imagen'):
+    #Se igualan los tamaños de las Imagenes
+    images = resizeImages(images)
     # Posicion 0 = Concatenacion Vertical, Position 1 = Concatenacion Horizontal
     if (position == 0) or (position == 1):
         for i in range(0, len(images)):
@@ -61,25 +63,22 @@ def displayMultipleImage(images, position = 1, name = 'Imagen'):
         
 # Mostrar Multiples Imagenes en una Ventana Matplotlib
 def plotMultipleImage(images, imgNames, rows, columns, name = 'Imagen'):
-    # El numero de Imagenes debe coincidir con el de particiones
-    #if (len(images) == (rows * columns)):
-        fig = plt.figure(0)
-        fig.canvas.set_window_title(name)
-        for i in range(rows * columns):
-            if (i < len(images)):
-                plt.subplot(rows, columns, i+1)
-                if (len(np.shape(images[i])) == 3):
-                    img = cv2.cvtColor(images[i], cv2.COLOR_BGR2RGB)
-                    plt.imshow(img)
-                else:
-                    plt.imshow(images[i], cmap = 'gray')
-                plt.title(imgNames[i])
-                plt.xticks([])
-                plt.yticks([])
-        plt.show()
-    #else:
-    #    print('El numero de particiones es distinto al de Imagenes')
-    #    sys.exit()
+    #Se igualan los tamaños de las Imagenes
+    images = resizeImages(images)
+    fig = plt.figure(0)
+    fig.canvas.set_window_title(name)
+    for i in range(rows * columns):
+        if (i < len(images)):
+            plt.subplot(rows, columns, i+1)
+            if (len(np.shape(images[i])) == 3):
+                img = cv2.cvtColor(images[i], cv2.COLOR_BGR2RGB)
+                plt.imshow(img)
+            else:
+                plt.imshow(images[i], cmap = 'gray')
+            plt.title(imgNames[i])
+            plt.xticks([])
+            plt.yticks([])
+    plt.show()
      
 #Modificar los Pixeles de la Imagen
 def modifyPixels(uri, typeImg = 0, pixel = 50):
@@ -113,6 +112,39 @@ def modifyPixels(uri, typeImg = 0, pixel = 50):
     else:
         print('Tipo de Imagen no Valido')
         sys.exit()
+
+# Escalar Imagenes al mismo tamaño añadiendo borde
+def resizeImages(images):
+    maxRows = 0
+    maxCols = 0
+    # Se obtiene el maximo ancho y alto
+    for i in range(len(images)):
+        img = images[i]
+        if(len(img) > maxRows):
+            maxRows = len(img)
+        if(len(img[0]) > maxCols):
+            maxCols = len(img[0])
+    # Se agrega un borde a cada imagen
+    # El tamaño es igual al maximo ancho/alto menos el ancho/alto de la Imagen
+    for i in range(len(images)):
+        img = images[i]
+        numRows = (maxRows-len(img))/2
+        numCols = (maxCols-len(img[0]))/2
+        if(numRows % 2 == 0):
+            top = bottom = int(numRows)
+        else:
+            top = int(numRows+0.5)
+            bottom = int(numRows-0.5)
+        if(numCols % 2 == 0):
+            left = right = int(numCols)
+        else:
+            left = int(numCols+0.5)
+            right = int(numCols-0.5)
+        # Se añade el borde
+        img = cv2.copyMakeBorder(img, top, bottom, left, right, cv2.BORDER_CONSTANT)
+        # Se reemplaza la Imagen
+        images[i] = img
+    return images
 
 """
 	Codigo Principal
@@ -159,14 +191,15 @@ def main():
     # Creamos otra lista con los nombres de las Imagenes
     images = []
     imgNames = []
-    images.append(readImage('data/cat.bmp', 0))
+    images.append(readImage('data/bicycle.bmp', 0))
+    imgNames.append('Bicycle')
+    images.append(readImage('data/cat.bmp', 1))
     imgNames.append('Cat')
-    images.append(readImage('data/dog.bmp', 1))
-    imgNames.append('Dog')
-    images.append(readImage('data/cat.bmp', 0))
-    imgNames.append('Cat')
+    images.append(readImage('data/einstein.bmp', 0))
+    imgNames.append('Einstein')
     # Se concatenan las Imagenes en la Lista, en una sola ventana
     plotMultipleImage(images, imgNames, 1, 3, 'Imagenes Concatenadas')
+    
 
 if __name__ == "__main__":
 	main()
