@@ -40,7 +40,7 @@ def showImageMatrixData(uri, name = 'Matriz Imagen', typeImg = 0):
     
 # Mostrar Multiples Imagenes en una Ventana OpenCV
 def displayMultipleImage(images, position = 1, name = 'Imagen'):
-    #Se igualan los tamaños de las Imagenes
+    # Se igualan los tamaños de las Imagenes
     images = resizeImages(images)
     # Posicion 0 = Concatenacion Vertical, Position 1 = Concatenacion Horizontal
     if (position == 0) or (position == 1):
@@ -63,7 +63,7 @@ def displayMultipleImage(images, position = 1, name = 'Imagen'):
         
 # Mostrar Multiples Imagenes en una Ventana Matplotlib
 def plotMultipleImage(images, imgNames, rows, columns, name = 'Imagen'):
-    #Se igualan los tamaños de las Imagenes
+    # Se igualan los tamaños de las Imagenes
     images = resizeImages(images)
     fig = plt.figure(0)
     fig.canvas.set_window_title(name)
@@ -80,30 +80,30 @@ def plotMultipleImage(images, imgNames, rows, columns, name = 'Imagen'):
             plt.yticks([])
     plt.show()
      
-#Modificar los Pixeles de la Imagen
+# Modificar los Pixeles de la Imagen
 def modifyPixels(uri, typeImg = 0, pixel = 50):
-    #Si la imagen esta en Escala de Grises no tiene tercera dimension
+    # Si la imagen esta en Escala de Grises no tiene tercera dimension
     if (typeImg == 0):
         img = readImage(uri, typeImg)
-        #Se obtienen los datos de anchura y altura
+        # Se obtienen los datos de anchura y altura
         h, w = np.shape(img)
         for py in range(0, h):
             for px in range(0, w):
-                #Si supera el nuevo pixel a 255, se resetea
+                # Si supera el nuevo pixel a 255, se resetea
                 if (pixel + img[py][px]) > 255:
                     img[py][px] = (img[py][px] + pixel) - 255 
                 else:
                     img[py][px] += pixel
         displayImage(img)
-    #Si la imagen esta en Escala de Colores tiene tercera dimension
+    # Si la imagen esta en Escala de Colores tiene tercera dimension
     elif (typeImg == 1):
         img = readImage(uri, typeImg) 
         h, w, bpp = np.shape(img)
         for py in range(0, h):
             for px in range(0, w):
-                #Se recorre la tercera dimension
+                # Se recorre la tercera dimension
                 for i in range(0, bpp):
-                    #Si supera el nuevo pixel a 255, se resetea
+                    # Si supera el nuevo pixel a 255, se resetea
                     if (pixel + img[py][px][i]) > 255:
                         img[py][px][i] = (img[py][px][i] + pixel) - 255
                     else:
@@ -169,13 +169,9 @@ def main():
     
     ### Ejercicio 03
     print('Imagenes Concatenadas')
-    # Creamos una Lista de Imagenes de distintos tipos
-    images = []
-    images.append(readImage('data/cat.bmp', 0))
-    images.append(readImage('data/dog.bmp', 1))
-    images.append(readImage('data/cat.bmp', 0))
     # Se concatenan las Imagenes en la Lista, en una sola ventana
-    displayMultipleImage(images, 1, 'Imagenes Concatenadas')
+    displayMultipleImage([readImage('data/cat.bmp', 0), readImage('data/dog.bmp', 1), 
+          readImage('data/cat.bmp', 0)], 1, 'Imagenes Concatenadas')
     
     input("\nPulsa Enter para continuar la ejecucion:\n")
     
@@ -187,18 +183,9 @@ def main():
     
     ### Ejercicio 05
     print('Imagenes Concatenadas con Titulos')
-    # Creamos una Lista de Imagenes de distintos tipos
-    # Creamos otra lista con los nombres de las Imagenes
-    images = []
-    imgNames = []
-    images.append(readImage('data/bicycle.bmp', 0))
-    imgNames.append('Bicycle')
-    images.append(readImage('data/cat.bmp', 1))
-    imgNames.append('Cat')
-    images.append(readImage('data/einstein.bmp', 0))
-    imgNames.append('Einstein')
     # Se concatenan las Imagenes en la Lista, en una sola ventana
-    plotMultipleImage(images, imgNames, 1, 3, 'Imagenes Concatenadas')
+    plotMultipleImage([readImage('data/bicycle.bmp', 0), readImage('data/cat.bmp', 1), 
+           readImage('data/einstein.bmp', 0)], ['Bicycle', 'Cat', 'Einstein'], 1, 3, 'Imagenes Concatenadas')
     
 
 if __name__ == "__main__":
