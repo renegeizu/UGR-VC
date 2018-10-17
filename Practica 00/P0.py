@@ -114,7 +114,7 @@ def modifyPixels(uri, typeImg = 0, pixel = 50):
         sys.exit()
 
 # Escalar Imagenes al mismo tamaño añadiendo borde
-def resizeImages(images):
+def resizeImagesPadding(images):
     maxRows = 0
     maxCols = 0
     # Se obtiene el maximo ancho y alto
@@ -144,6 +144,61 @@ def resizeImages(images):
         img = cv2.copyMakeBorder(img, top, bottom, left, right, cv2.BORDER_CONSTANT)
         # Se reemplaza la Imagen
         images[i] = img
+    return images
+
+# Escalar Imagenes al mismo tamaño
+def resizeImages(images):
+    minRows = 999999999999
+    minCols = 999999999999
+    # Se obtiene el minimo ancho y alto
+    for i in range(len(images)):
+        img = images[i]
+        if(len(img) < minRows):
+            minRows = len(img)
+        if(len(img[0]) < minCols):
+            minCols = len(img[0])
+    # Se ajustan las Imagenes a la Imagen mas pequeña
+    for i in range(len(images)):
+        img = images[i]
+        images[i] = cv2.resize(img, (minRows, minCols))
+    return images
+
+# Recortar Imagenes al mismo tamaño
+def cropImages(images):
+    minRows = 999999999999
+    minCols = 999999999999
+    # Se obtiene el minimo ancho y alto
+    for i in range(len(images)):
+        img = images[i]
+        if(len(img) < minRows):
+            minRows = len(img)
+        if(len(img[0]) < minCols):
+            minCols = len(img[0])
+    # El tamaño es igual al ancho/alto de la Imagen menos el minimo ancho/alto
+    for i in range(len(images)):
+        img = images[i]
+        numRows = (len(img)-minRows)/2
+        numCols = (len(img[0])-minCols)/2
+        if(numRows % 2 == 0):
+            top = int(numRows)
+            bottom = int(len(img))-int(numRows)
+        else:
+            top = int(numRows+(0.5))
+            bottom = int(len(img))-int(numRows-0.5)
+        if(numCols % 2 == 0):
+            left = int(numCols)
+            right = int(len(img[0]))-int(numCols)
+        else:
+            left = int(numCols+(0.5))
+            right = int(len(img[0]))-int(numCols-(0.5))
+        if(bottom == 0):
+            top = 0
+            bottom = int(len(img))
+        if(right == 0):
+            left = 0
+            right = int(len(img[0]))
+        # Se reemplaza la Imagen
+        images[i] = img[top:bottom, left:right]
     return images
 
 """
@@ -186,7 +241,6 @@ def main():
     # Se concatenan las Imagenes en la Lista, en una sola ventana
     plotMultipleImage([readImage('data/bicycle.bmp', 0), readImage('data/cat.bmp', 1), 
            readImage('data/einstein.bmp', 0)], ['Bicycle', 'Cat', 'Einstein'], 1, 3, 'Imagenes Concatenadas')
-    
 
 if __name__ == "__main__":
 	main()
