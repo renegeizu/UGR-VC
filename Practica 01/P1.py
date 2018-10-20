@@ -40,8 +40,6 @@ def showImageMatrixData(uri, name = 'Matriz Imagen', typeImg = 0):
     
 # Mostrar Multiples Imagenes en una Ventana OpenCV
 def displayMultipleImage(images, position = 1, name = 'Imagen'):
-    # Se igualan los tamaños de las Imagenes
-    images = resizeImages(images)
     # Posicion 0 = Concatenacion Vertical, Position 1 = Concatenacion Horizontal
     if (position == 0) or (position == 1):
         for i in range(0, len(images)):
@@ -63,17 +61,17 @@ def displayMultipleImage(images, position = 1, name = 'Imagen'):
         
 # Mostrar Multiples Imagenes en una Ventana Matplotlib
 def plotMultipleImage(images, imgNames, rows, columns, name = 'Imagen'):
-    # Se igualan los tamaños de las Imagenes
-    images = resizeImages(images)
     fig = plt.figure(0)
     fig.canvas.set_window_title(name)
     for i in range(rows * columns):
         if (i < len(images)):
             plt.subplot(rows, columns, i+1)
             if (len(np.shape(images[i])) == 3):
+                # Si la Imagen es a color
                 img = cv2.cvtColor(images[i], cv2.COLOR_BGR2RGB)
                 plt.imshow(img)
             else:
+                # Si la Imagen es en gris
                 plt.imshow(images[i], cmap = 'gray')
             plt.title(imgNames[i])
             plt.xticks([])
@@ -146,6 +144,18 @@ def resizeImagesPadding(images):
         images[i] = img
     return images
 
+# Encadena Multiples Imagenes en una Ventana OpenCV para Piramides
+def construct_pyramid(imgA , imgB):
+    # Se obtienen las filas y columnas
+    heightA, weightA = imgA.shape
+    heightB, weightB = imgB.shape
+    # Se crea la nueva Imagen inicializada a ceros
+    imagen = np.zeros((max(heightA, heightB), weightA + weightB),  np.uint8)
+    # Se concatenan las Imagenes
+    imagen[:heightA, :weightA] = imgA
+    imagen[:heightB, weightA:weightA + weightB] = imgB
+    return imagen
+
 # Escalar Imagenes al mismo tamaño
 def resizeImages(images):
     minRows = 999999999999
@@ -201,23 +211,6 @@ def cropImages(images):
         images[i] = img[top:bottom, left:right]
     return images
 
-# Mostrar Multiples Graficas en una Ventana Matplotlib
-def plotMultipleGraph(data, dataNames, rows, columns, name = 'Grafica'):
-    # El numero de Graficas debe coincidir con el de particiones
-    fig = plt.figure(0)
-    fig.canvas.set_window_title(name)
-    # Situa las Graficas secuencialmente
-    for i in range(rows * columns):
-        if (i < len(data)) and (i % 2 == 0):
-            plt.subplot(rows, columns, i+1)
-            plt.plot(data[i], 'b-', data[i], 'bo')
-            plt.title(dataNames[i])
-        else:
-            plt.subplot(rows, columns, i+1)
-            plt.pcolormesh(data[i-1].dot(data[i].T), edgecolors = 'k', linewidths = 3)
-            plt.title(dataNames[i])
-    plt.show()
-
 """
     Funciones Especificas de la Practica
 """
@@ -230,7 +223,7 @@ def gaussian_blur(img, size = (0, 0), sigma = 0, border = cv2.BORDER_DEFAULT):
 def derive_convolution(derivX = 0, derivY = 0, size = 7, normal = True):
 	#Ksize = 1, 3, 5, 7
     if ((size == 1) or (size == 3) or (size == 5) or (size == 7)):
-        return cv2.getDerivKernels(dx = derivX, dy = derivY, ksize = size, normalize = normal)
+        return cv2.getDerivKernels(dx = derivX, dy = derivY, ksize = size, normalize = normal, ktype = cv2.CV_64F)
     #Si el Ksize no es valido se obtiene error
     else:
         print('El tamaño debe ser 1, 3, 5 o 7')
@@ -248,18 +241,51 @@ def separable_filter(img, kernel_X = 0, kernel_Y = 0, border_T = cv2.BORDER_DEFA
     return cv2.sepFilter2D(img, depth, kernel_X, kernel_Y, delta = delt, borderType = border_T, anchor = anch)
 
 # Convolucion con Derivadas
-def derive(img, derivX = 0, derivY = 0, sigma = 0, border = cv2.BORDER_DEFAULT, size = 7, depth = 0, delt = 0):
+def derive(img, derivX = 0, derivY = 0, sigma = 0, border = cv2.BORDER_DEFAULT, size = 1, depth = 0, delt = 0):
     X, Y = derive_convolution(derivX, derivY, size)
     img = cv2.copyMakeBorder(img, size, size, size, size, border)
     gaussian = cv2.getGaussianKernel(size, sigma)
     blur = gaussian_blur(img, (size, size), sigma, border)
-    #imgA = cv2.sepFilter2D(img, depth, X, np.transpose(gaussian), delta = delt, borderType = border)
-    #imgB = cv2.sepFilter2D(img, depth, gaussian, Y, delta = delt, borderType = border)
-    #imgC = cv2.sepFilter2D(blur, depth, X, Y, delta = delt, borderType = border)
     imgA = separable_filter(img, X, np.transpose(gaussian), border, depth, delt)
     imgB = separable_filter(img, gaussian, Y, border, depth, delt)
     imgC = separable_filter(blur, X, Y, border, depth, delt)
-    return imgA, imgB, imgC
+    return [imgA, imgB, imgC]
+
+# Piramide Gaussiana
+def gaussian_pyramid(img, level = 4, border = cv2.BORDER_DEFAULT):
+    images = imgPyr = img
+    for i in range(0, level-1):
+        imgPyr = cv2.pyrDown(imgPyr, borderType = border)
+        images = construct_pyramid(images, imgPyr)
+    return images
+
+# Piramide Laplaciana
+def laplacian_pyramid(img, level = 4, border = cv2.BORDER_DEFAULT):
+    # Piramide Gaussiana
+    images = [cv2.pyrDown(img, borderType = border)]
+    for i in range(1, level):
+        images.append(cv2.pyrDown(images[i-1], borderType = border))
+    image = images[-1]
+    result = image
+    # Piramide Laplaciana
+    for i in reversed(images[0:-1]):
+        a = cv2.pyrUp(image, dstsize = (i.shape[1], i.shape[0]))
+        b = cv2.subtract(a, i)
+        result = construct_pyramid(result, b)
+        image = i
+    return result
+
+# Hibridar Imagenes
+def hybrid_images(imgA, imgB, hFreq = 11, lFreq = 11, size = (7, 7)):
+    imgA = readImage(imgA, 0)
+    imgB = readImage(imgB, 0)
+    # Se obtiene la alta frecuencia
+    hFreqImg = cv2.subtract(imgA, gaussian_blur(imgA, size, hFreq))
+    # Se obtiene la baja frecuencia
+    lFreqImg = gaussian_blur(imgB, size, lFreq)
+    # Hibridamos Imagen
+    hybridImg = cv2.add(hFreqImg, lFreqImg)
+    return [hFreqImg, hybridImg, lFreqImg]
 
 """
 	Codigo Ejercicios Obligatorios
@@ -268,105 +294,97 @@ def derive(img, derivX = 0, derivY = 0, sigma = 0, border = cv2.BORDER_DEFAULT, 
 def ejercicio_1A(img_uri):
     img = readImage(img_uri, 1)
     displayImage(img, name = 'Original')
-    plotMultipleImage([gaussian_blur(img, (1, 1), 1), gaussian_blur(img, (11, 11), 1), gaussian_blur(img, (101, 101), 1)], 
+    plotMultipleImage(resizeImages([gaussian_blur(img, (1, 1), 1), gaussian_blur(img, (11, 11), 1), gaussian_blur(img, (101, 101), 1)]), 
                        ['1 - (1, 1)', '1 - (11, 11)', '1 - (101, 101)'], 1, 3, 'GaussianBlur')
-    plotMultipleImage([gaussian_blur(img, (1, 1), 3), gaussian_blur(img, (11, 11), 3), gaussian_blur(img, (101, 101), 3)], 
+    plotMultipleImage(resizeImages([gaussian_blur(img, (1, 1), 3), gaussian_blur(img, (11, 11), 3), gaussian_blur(img, (101, 101), 3)]), 
                        ['3 - (1, 1)', '3 - (11, 11)', '3 - (101, 101)'], 1, 3, 'GaussianBlur')
-    plotMultipleImage([gaussian_blur(img, (1, 1), 5), gaussian_blur(img, (11, 11), 5), gaussian_blur(img, (101, 101), 5)], 
+    plotMultipleImage(resizeImages([gaussian_blur(img, (1, 1), 5), gaussian_blur(img, (11, 11), 5), gaussian_blur(img, (101, 101), 5)]), 
                        ['5 - (1, 1)', '5 - (11, 11)', '5 - (101, 101)'], 1, 3, 'GaussianBlur')
-    plotMultipleImage([gaussian_blur(img, (1, 1), 7), gaussian_blur(img, (11, 11), 7), gaussian_blur(img, (101, 101), 7)], 
+    plotMultipleImage(resizeImages([gaussian_blur(img, (1, 1), 7), gaussian_blur(img, (11, 11), 7), gaussian_blur(img, (101, 101), 7)]), 
                        ['7 - (1, 1)', '7 - (11, 11)', '7 - (101, 101)'], 1, 3, 'GaussianBlur')
-	
+
 def ejercicio_1B():
+    print("Para Sigma = 1\n")
     X1, Y1 = derive_convolution(1, 1, 1)
     X2, Y2 = derive_convolution(2, 2, 1)
-    plotMultipleGraph([X1, Y1], ['1º Derivada', 'Size = 1'], 1, 2)
-    plotMultipleGraph([X2, Y2], ['2º Derivada', 'Size = 1'], 1, 2)
+    print("Primera Derivada en X:\n", X1, "\nPrimera Derivada en Y:\n", Y1)
+    print("Segunda Derivada en X:\n", X2, "\nSegunda Derivada en Y:\n", Y2)
+    print("Para Sigma = 3\n")
     X1, Y1 = derive_convolution(1, 1, 3)
     X2, Y2 = derive_convolution(2, 2, 3)
-    plotMultipleGraph([X1, Y1], ['1º Derivada', 'Size = 3'], 1, 2)
-    plotMultipleGraph([X2, Y2], ['2º Derivada', 'Size = 3'], 1, 2)
+    print("Primera Derivada en X:\n", X1, "\nPrimera Derivada en Y:\n", Y1)
+    print("Segunda Derivada en X:\n", X2, "\nSegunda Derivada en Y:\n", Y2)
+    print("Para Sigma = 5\n")
     X1, Y1 = derive_convolution(1, 1, 5)
     X2, Y2 = derive_convolution(2, 2, 5)
-    plotMultipleGraph([X1, Y1], ['1º Derivada', 'Size = 5'], 1, 2)
-    plotMultipleGraph([X2, Y2], ['2º Derivada', 'Size = 5'], 1, 2)
+    print("Primera Derivada en X:\n", X1, "\nPrimera Derivada en Y:\n", Y1)
+    print("Segunda Derivada en X:\n", X2, "\nSegunda Derivada en Y:\n", Y2)
+    print("Para Sigma = 7\n")
     X1, Y1 = derive_convolution(1, 1, 7)
     X2, Y2 = derive_convolution(2, 2, 7)
-    plotMultipleGraph([X1, Y1], ['1º Derivada', 'Size = 7'], 1, 2)
-    plotMultipleGraph([X2, Y2], ['2º Derivada', 'Size = 7'], 1, 2)
+    print("Primera Derivada en X:\n", X1, "\nPrimera Derivada en Y:\n", Y1)
+    print("Segunda Derivada en X:\n", X2, "\nSegunda Derivada en Y:\n", Y2)
 
 def ejercicio_1C(img_uri):
     img = readImage(img_uri, 1)
     displayImage(img, name = 'Original')
-    plotMultipleImage([laplacian_gaussian(img, 1, cv2.BORDER_REPLICATE), laplacian_gaussian(img, 1, cv2.BORDER_REFLECT)], 
+    plotMultipleImage(resizeImages([laplacian_gaussian(img, 1, cv2.BORDER_REPLICATE), laplacian_gaussian(img, 1, cv2.BORDER_REFLECT)]), 
                        ['1 - Replicate', '1 - Reflect'], 1, 3, 'Laplacian')
-    plotMultipleImage([laplacian_gaussian(img, 3, cv2.BORDER_REPLICATE), laplacian_gaussian(img, 3, cv2.BORDER_REFLECT)], 
+    plotMultipleImage(resizeImages([laplacian_gaussian(img, 3, cv2.BORDER_REPLICATE), laplacian_gaussian(img, 3, cv2.BORDER_REFLECT)]), 
                        ['3 - Replicate', '3 - Reflect'], 1, 3, 'Laplacian')
 
 def ejercicio_2A(img_uri):
-    displayImage(separable_filter(gaussian_blur(readImage(img_uri, 0), (11, 11)), 1, 1))    
+    displayImage(separable_filter(gaussian_blur(readImage(img_uri, 0), (11, 11)), 1, 1))
 
-def ejercicio_2B():
-	print()
-    #Lo anterior con Derivacion
+def ejercicio_2B(img_uri):
+    displayMultipleImage(resizeImages(derive(readImage(img_uri, 0), 1, 1)))
 
-def ejercicio_2C():
-	print()
-    #Lo anterior con Derivacion
+def ejercicio_2C(img_uri):
+	displayMultipleImage(resizeImages(derive(readImage(img_uri, 0), 2, 2)))
 
-def ejercicio_2D():
-	print()
+def ejercicio_2D(img_uri):
+	displayImage(gaussian_pyramid(readImage(img_uri, 0)))
 
-def ejercicio_2E():
-	print()
+def ejercicio_2E(img_uri):
+	displayImage(laplacian_pyramid(readImage(img_uri, 0)))
 
-def ejercicio_3(imgA, imgB, hFreq = 35, lFreq = 99):
-    imgA = readImage(imgA, 0)
-    imgB = readImage(imgB, 0)
-    blurH = gaussian_blur(imgA, (hFreq, hFreq))
-    blurL = gaussian_blur(imgB, (lFreq, lFreq))
-    sharp = imgA - blurH
-    displayMultipleImage([imgA, sharp+blurL, imgB])
-
-"""
-	Codigo Ejercicios Bonus
-"""
-
-def ejercicio_B1():
-	print()
-
-def ejercicio_B2():
-	print()
-
-def ejercicio_B3():
-	print()
-
-def ejercicio_B4():
-	print()
-
-def ejercicio_B5():
-	print()
+def ejercicio_3(img1A, img2A, img1B, img2B, img1C, img2C):
+    displayMultipleImage(hybrid_images(img1A, img2A))
+    displayMultipleImage(hybrid_images(img1B, img2B))
+    displayMultipleImage(hybrid_images(img1C, img2C))
 	
 """
 	Codigo Principal
 """
 
 def main():
-	### Ejercicio 01 - A
-    #ejercicio_1A('data/cat.bmp')
-    #input("\nPulsa Enter para continuar la ejecucion:\n")
-	### Ejercicio 01 - B
-    #ejercicio_1B()
-    #input("\nPulsa Enter para continuar la ejecucion:\n")
+    ### Ejercicio 01 - A
+    ejercicio_1A('data/cat.bmp')
+    input("\nPulsa Enter para continuar la ejecucion:\n")
+    ### Ejercicio 01 - B
+    ejercicio_1B()
+    input("\nPulsa Enter para continuar la ejecucion:\n")
     ### Ejercicio 01 - C
-    #ejercicio_1C('data/dog.bmp')
-    #input("\nPulsa Enter para continuar la ejecucion:\n")
+    ejercicio_1C('data/dog.bmp')
+    input("\nPulsa Enter para continuar la ejecucion:\n")
     ### Ejercicio 02 - A
-    #ejercicio_2A('data/plane.bmp')
-    #input("\nPulsa Enter para continuar la ejecucion:\n")
+    ejercicio_2A('data/plane.bmp')
+    input("\nPulsa Enter para continuar la ejecucion:\n")
+    ### Ejercicio 02 - B
+    ejercicio_2B('data/bird.bmp')
+    input("\nPulsa Enter para continuar la ejecucion:\n")
+    ### Ejercicio 02 - C
+    ejercicio_2C('data/fish.bmp')
+    input("\nPulsa Enter para continuar la ejecucion:\n")
+    ### Ejercicio 02 - D
+    ejercicio_2D('data/plane.bmp')
+    input("\nPulsa Enter para continuar la ejecucion:\n")
+    ### Ejercicio 02 - E
+    ejercicio_2E('data/submarine.bmp')
+    input("\nPulsa Enter para continuar la ejecucion:\n")
     ### Ejercicio 03
-    #ejercicio_3('data/cat.bmp', 'data/dog.bmp')
-    #input("\nPulsa Enter para continuar la ejecucion:\n")
+    ejercicio_3('data/bicycle.bmp', 'data/motorcycle.bmp', 'data/einstein.bmp', 
+        'data/marilyn.bmp','data/fish.bmp', 'data/submarine.bmp')
     
 if __name__ == "__main__":
 	main()
