@@ -197,7 +197,7 @@ def cropImages(images):
         if(right == 0):
             left = 0
             right = int(len(img[0]))
-        # Se reemplaza la Imagen
+        # Se escala la Imagen
         images[i] = img[top:bottom, left:right]
     return images
 
