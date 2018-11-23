@@ -215,51 +215,100 @@ def cropImages(images):
     Funciones Especificas de la Practica
 """
 
-def getSiftSurf(images, mode = 0, flagOption = cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS):
+# Devuelve los keypoints de SIFT o SURF y las imagenes con los keypoints dibujados
+def getSiftSurf(images, names, mode = 0, flagOption = cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS):
     imagesMode = []
+    keyPoints = []
+    descriptors = []
     if(mode == 0): # SIFT
+        print("\nSIFT Points")
+        # Clase para extraer los keypoints y descriptores de SIFT
         sift = cv2.xfeatures2d.SIFT_create(nfeatures = 1500)
         for i in range(len(images)):
-            imagesMode.append(cv2.drawKeypoints(images[i], sift.detect(images[i], None), None, flags = flagOption))
+            # Se extraen los keypoint
+            kp = sift.detect(images[i], None)
+            # Numero de puntos obtenidos
+            print("\tImagen ", names[i], ": ", len(kp))
+            keyPoints.append(kp)
+            # Se guardar la imagen con los keypoints dibujados
+            imagesMode.append(cv2.drawKeypoints(images[i], kp, None, flags = flagOption))
+            # Se obtiene el descriptor
+            descriptors.append(sift.compute(images[i], kp))
     else: #SURF
+        print("\nSURF Points")
+        # Clase para extraer los keypoints y descriptores de SURF
         surf = cv2.xfeatures2d.SURF_create(hessianThreshold = 500)
         for i in range(len(images)):
-            imagesMode.append(cv2.drawKeypoints(images[i], surf.detect(images[i], None), None, flags = flagOption))
-    return imagesMode
+            # Se extraen los keypoint
+            kp = surf.detect(images[i], None)
+            # Numero de puntos obtenidos
+            print("\tImagen ", names[i], ": ", len(kp))
+            keyPoints.append(kp)
+            # Se guardar la imagen con los keypoints dibujados
+            imagesMode.append(cv2.drawKeypoints(images[i], kp, None, flags = flagOption))
+            # Se obtiene el descriptor
+            descriptors.append(surf.compute(images[i], kp))
+    return imagesMode, keyPoints, descriptors
+
+# Funcion para desempaquetar las octavas
+def unpackOctave(keyPoints):
+    # Se crea el diccionario
+    dictOctave = dict()
+    for kpoint in keyPoints:
+        # Se obtienen la octava, la capa y la escala
+        _octave = kpoint.octave
+        octave = _octave & 0xFF
+        layer = (_octave >> 8) & 0xFF
+        if octave >= 128:
+            octave |= -128
+        if octave >= 0:
+            scale = float(1/(1 << octave))
+        else:
+            scale = float(1 << -octave)
+        # Se actualiza el diccionario con los datos obtenidos
+        if str(octave) in dictOctave:
+            dictOctave[str(octave)] = np.append(dictOctave[str(octave)], [[int(layer), scale, kpoint.angle]], axis = 0)
+        else:
+            dictOctave[str(octave)] = np.array([[int(layer), scale, kpoint.angle]])
+    return dictOctave
+
+# Devuelve la informacion de (Octava, Num. Elementos) y (Capas por Octava, Puntos Detectados por Capa)
+def dictionaryInfo(keyPoints, title):
+    # Obtenemos el diccionario
+    dictOctave = unpackOctave(keyPoints)
+    print(title)
+    # Extraemos la informacion
+    for i in dictOctave:
+        print("\tOctava: ", i, ", Num. Elementos: ", dictOctave[i].shape)
+        for j in np.unique(dictOctave[i][:, 0]):
+            print("\tCapa: ", j, ", Puntos Detectados: ", dictOctave[i][dictOctave[i][:, 0] == j].shape[0])
 
 """
 	Codigo Ejercicios
 """
 
-def ejercicio_1A(path = "data/yosemite-basic/", channel = 1):
+def ejercicio_1(path = "data/yosemite-basic/", channel = 1):
+    # Leemos las imagenes y les asignamos nombres
     images = [readImage(path+"Yosemite1.jpg", channel), readImage(path+"Yosemite2.jpg", channel)]
-    imagesSift = getSiftSurf(images, 0)
-    imagesSurf = getSiftSurf(images, 1)
+    names = ["Yosemite1", "Yosemite2"]
+    # Obtenemos los keypoints y las imagenes con los keypoints dibujados
+    # Tambien obtenemos los descriptores a partir de los keypoints
+    imagesSift, kpSift, descriptorsSift = getSiftSurf(images, names, 0)
+    imagesSurf, kpSurf, descriptorsSurf = getSiftSurf(images, names, 1)
+    # Mostramos las imagenes
     displayMultipleImage(imagesSift, 1, 'Imagenes SIFT')
     displayMultipleImage(imagesSurf, 1, 'Imagenes SURF')
+    # Obtenemos informacion de las Octavas y sus elementos
+    # Tambien de las capas y los puntos detectados
+    for i in range(len(kpSift)):
+        dictionaryInfo(kpSift[i], "\nSIFT Points "+names[i])
+    for i in range(len(kpSurf)):
+        dictionaryInfo(kpSurf[i], "\nSURF Points "+names[i])
 
-def ejercicio_1B():
+def ejercicio_2():
     print()
 
-def ejercicio_1C():
-    print()
-
-def ejercicio_2A():
-    print()
-
-def ejercicio_2B():
-    print()
-
-def ejercicio_2C():
-    print()
-
-def ejercicio_3A():
-    print()
-
-def ejercicio_3B():
-    print()
-
-def ejercicio_3C():
+def ejercicio_3():
     print()
     
 def ejercicio_4():
@@ -275,34 +324,16 @@ def main():
     pathYosemiteBasic = "data/yosemite-basic/"
     pathYosemiteFull = "data/yosemite-full/"
     
-    ### Ejercicio 01 - A
-    ejercicio_1A(pathYosemiteBasic, 1)
+    ### Ejercicio 01
+    ejercicio_1(pathYosemiteBasic, 1)
     input("\nPulsa Enter para continuar la ejecucion:\n")
-    ### Ejercicio 01 - B
-    #ejercicio_1B()
-    #input("\nPulsa Enter para continuar la ejecucion:\n")
-    ### Ejercicio 01 - C
-    #ejercicio_1C()
+    
+    ### Ejercicio 02
+    #ejercicio_2()
     #input("\nPulsa Enter para continuar la ejecucion:\n")
     
-    ### Ejercicio 02 - A
-    #ejercicio_2A()
-    #input("\nPulsa Enter para continuar la ejecucion:\n")
-    ### Ejercicio 02 - B
-    #ejercicio_2B()
-    #input("\nPulsa Enter para continuar la ejecucion:\n")
-    ### Ejercicio 02 - C
-    #ejercicio_2C()
-    #input("\nPulsa Enter para continuar la ejecucion:\n")
-    
-    ### Ejercicio 03 - A
-    #ejercicio_3A()
-    #input("\nPulsa Enter para continuar la ejecucion:\n")
-    ### Ejercicio 03 - B
-    #ejercicio_3B()
-    #input("\nPulsa Enter para continuar la ejecucion:\n")
-    ### Ejercicio 03 - C
-    #ejercicio_3C()
+    ### Ejercicio 03
+    #ejercicio_3()
     #input("\nPulsa Enter para continuar la ejecucion:\n")
     
     ### Ejercicio 04
