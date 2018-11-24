@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import cv2
+import math
 import numpy as np
 import sys
 
@@ -223,7 +224,7 @@ def getSiftSurf(images, names, mode = 0, flagOption = cv2.DRAW_MATCHES_FLAGS_DRA
     if(mode == 0): # SIFT
         print("\nSIFT Points")
         # Clase para extraer los keypoints y descriptores de SIFT
-        sift = cv2.xfeatures2d.SIFT_create(nfeatures = 1500)
+        sift = cv2.xfeatures2d.SIFT_create(nfeatures = 1000)
         for i in range(len(images)):
             # Se extraen los keypoint
             kp = sift.detect(images[i], None)
@@ -237,7 +238,7 @@ def getSiftSurf(images, names, mode = 0, flagOption = cv2.DRAW_MATCHES_FLAGS_DRA
     else: #SURF
         print("\nSURF Points")
         # Clase para extraer los keypoints y descriptores de SURF
-        surf = cv2.xfeatures2d.SURF_create(hessianThreshold = 500)
+        surf = cv2.xfeatures2d.SURF_create(hessianThreshold = 670)
         for i in range(len(images)):
             # Se extraen los keypoint
             kp = surf.detect(images[i], None)
@@ -283,6 +284,77 @@ def dictionaryInfo(keyPoints, title):
         for j in np.unique(dictOctave[i][:, 0]):
             print("\tCapa: ", j, ", Puntos Detectados: ", dictOctave[i][dictOctave[i][:, 0] == j].shape[0])
 
+# Funcion para obtener la imagen con los matches
+def SiftDetectCompute(imgA, imgB, nMatches = 100, modeFlag = 0):
+    # Extraemos los keypoints y el descriptor de cada imagen
+    sift = cv2.xfeatures2d.SIFT_create()
+    kPointA, descriptorA = sift.detectAndCompute(imgA, None)
+    kPointB, descriptorB = sift.detectAndCompute(imgB, None)
+    if modeFlag == 0: # Modo BruteForce+crossCheck
+        bruteForce = cv2.BFMatcher(normType = cv2.NORM_L2, crossCheck = True)
+        matches = bruteForce.match(descriptorA, descriptorB)
+    else: # Modo Lowe-Average-2NN
+        bruteForce = cv2.BFMatcher(normType = cv2.NORM_L2, crossCheck = False)
+        primaryMatches = bruteForce.knnMatch(descriptorA, descriptorB, 2)
+        # Escogemos los mejores matches manualmente
+        matches = []
+        for m, n in primaryMatches:
+            if m.distance < 0.75 * n.distance: # 0.75 = Threshold
+                matches.append(m)
+    # Ordenamos los matches por distancia
+    matches = np.array(sorted(matches, key = lambda x:x.distance, reverse = False))
+    output = np.zeros(shape = (1, 1)).astype(np.float64)
+    # Pintamos todos los matches en la imagen
+    full = partial = cv2.drawMatches(imgA, kPointA, imgB, kPointB, matches, output)
+    # Si limitamos el numero de matches escogemos los X primeros
+    if nMatches < len(matches):
+        matches = matches[0:nMatches]
+        partial = cv2.drawMatches(imgA, kPointA, imgB, kPointB, matches, output)
+    return full, partial
+
+def getHomography(imgA, imgB, modeFlag = 0):
+    sift = cv2.xfeatures2d.SIFT_create()
+    kPointA, descriptorA = sift.detectAndCompute(imgA, None)
+    kPointB, descriptorB = sift.detectAndCompute(imgB, None)
+    if modeFlag == 0: # Modo BruteForce+crossCheck
+        bruteForce = cv2.BFMatcher(normType = cv2.NORM_L2, crossCheck = True)
+        matches = bruteForce.match(descriptorA, descriptorB)
+    else: # Modo Lowe-Average-2NN
+        bruteForce = cv2.BFMatcher(normType = cv2.NORM_L2, crossCheck = False)
+        primaryMatches = bruteForce.knnMatch(descriptorA, descriptorB, 2)
+        # Escogemos los mejores matches manualmente
+        matches = []
+        for m, n in primaryMatches:
+            if m.distance < 0.75 * n.distance: # 0.75 = Threshold
+                matches.append(m)
+    # Ordenamos los matches por distancia
+    matches = np.array(sorted(matches, key = lambda x:x.distance, reverse = False))
+    # Se alinean las imagenes
+    dst = np.float32([kPointA[m.queryIdx].pt for m in matches]).reshape(-1, 1, 2)
+    src = np.float32([kPointB[m.trainIdx].pt for m in matches]).reshape(-1, 1, 2)
+    # Se obtiene la homografia
+    return cv2.findHomography(src, dst, cv2.RANSAC, 1.0)
+        
+def getMosaic(img, modeFlag = 0):
+    if len(img) == 2:
+        # Obtenemos la homografia
+        homography, masked = getHomography(img[0], img[1], modeFlag)
+        # Se unen las imagenes
+        result = cv2.warpPerspective(src = img[1], M = homography, dsize = (img[0].shape[1] + img[1].shape[1], img[1].shape[0]))
+        result[0:img[0].shape[0], 0:img[0].shape[1]] = img[0]
+        # Se quitan las partes negras que se generan
+        result = np.delete(arr = result, obj = range(np.where(np.sum(a = result[0], axis = 1) == 0)[0][0]-10, img[0].shape[1] + img[1].shape[1]), axis = 1)
+        return result
+    elif len(img) == 3:
+         result12 = getMosaic([img[0], img[1]])
+         result23 = getMosaic([img[1], img[2]])
+         return getMosaic([result12, result23])
+    else:
+        central = math.floor(len(img)/2)
+        first = getMosaic(img[:central])
+        second = getMosaic(img[central:])
+        return getMosaic([first, second])
+
 """
 	Codigo Ejercicios
 """
@@ -296,8 +368,10 @@ def ejercicio_1(path = "data/yosemite-basic/", channel = 1):
     imagesSift, kpSift, descriptorsSift = getSiftSurf(images, names, 0)
     imagesSurf, kpSurf, descriptorsSurf = getSiftSurf(images, names, 1)
     # Mostramos las imagenes
-    displayMultipleImage(imagesSift, 1, 'Imagenes SIFT')
-    displayMultipleImage(imagesSurf, 1, 'Imagenes SURF')
+    displayImage(imagesSift[0], 'Imagen SIFT - Yosemite1')
+    displayImage(imagesSift[1], 'Imagen SIFT - Yosemite2')
+    displayImage(imagesSurf[0], 'Imagen SURF - Yosemite1')
+    displayImage(imagesSurf[1], 'Imagen SURF - Yosemite2')
     # Obtenemos informacion de las Octavas y sus elementos
     # Tambien de las capas y los puntos detectados
     for i in range(len(kpSift)):
@@ -305,14 +379,30 @@ def ejercicio_1(path = "data/yosemite-basic/", channel = 1):
     for i in range(len(kpSurf)):
         dictionaryInfo(kpSurf[i], "\nSURF Points "+names[i])
 
-def ejercicio_2():
-    print()
+def ejercicio_2(path = "data/yosemite-basic/", channel = 1):
+    # Leemos las imagenes y les asignamos nombres
+    img = [readImage(path+"Yosemite1.jpg", channel), readImage(path+"Yosemite2.jpg", channel)]
+    # Obtenemos la imagen y la pintamos
+    full, partial = SiftDetectCompute(img[0], img[1], nMatches = 100, modeFlag = 0)
+    displayImage(full, 'BruteForce+crossCheck (Full)')
+    displayImage(partial, 'BruteForce+crossCheck (Partial)')
+    full, partial = SiftDetectCompute(img[0], img[1], nMatches = 100, modeFlag = 1)
+    displayImage(full, 'Lowe-Average-2NN (Full)')
+    displayImage(partial, 'Lowe-Average-2NN (Partial)')
 
-def ejercicio_3():
-    print()
+def ejercicio_3(path = "data/mosaico/", channel = 1):
+    img = [readImage(path+"mosaico002.jpg", channel), readImage(path+"mosaico003.jpg", channel), 
+           readImage(path+"mosaico004.jpg", channel)]
+    displayImage(getMosaic(img), "Mosaico N = 3")
     
-def ejercicio_4():
-    print()
+def ejercicio_4(path = "data/mosaico/", channel = 1):
+    img = [readImage(path+"mosaico002.jpg", channel), readImage(path+"mosaico003.jpg", channel),
+           readImage(path+"mosaico004.jpg", channel), readImage(path+"mosaico005.jpg", channel),
+           readImage(path+"mosaico006.jpg", channel), readImage(path+"mosaico007.jpg", channel),
+           readImage(path+"mosaico008.jpg", channel), readImage(path+"mosaico009.jpg", channel),
+           readImage(path+"mosaico010.jpg", channel), readImage(path+"mosaico011.jpg", channel)]
+    displayImage(getMosaic(img[0:7]), "Mosaico N = 7")
+    displayImage(getMosaic(img), "Mosaico N = 10")
 
 """
 	Codigo Principal
@@ -323,21 +413,17 @@ def main():
     pathTablero = "data/tablero/"
     pathYosemiteBasic = "data/yosemite-basic/"
     pathYosemiteFull = "data/yosemite-full/"
-    
     ### Ejercicio 01
     ejercicio_1(pathYosemiteBasic, 1)
     input("\nPulsa Enter para continuar la ejecucion:\n")
-    
     ### Ejercicio 02
-    #ejercicio_2()
-    #input("\nPulsa Enter para continuar la ejecucion:\n")
-    
+    ejercicio_2(pathYosemiteBasic, 1)
+    input("\nPulsa Enter para continuar la ejecucion:\n")
     ### Ejercicio 03
-    #ejercicio_3()
-    #input("\nPulsa Enter para continuar la ejecucion:\n")
-    
+    ejercicio_3(pathMosaico, 1)
+    input("\nPulsa Enter para continuar la ejecucion:\n")
     ### Ejercicio 04
-    #ejercicio_4()
+    ejercicio_4(pathMosaico, 1)
     
 if __name__ == "__main__":
     main()
